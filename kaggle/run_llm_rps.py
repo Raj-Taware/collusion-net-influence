@@ -10,6 +10,7 @@ import urllib.request
 
 MODEL = "Qwen/Qwen2.5-7B-Instruct"
 REPO = "https://github.com/Raj-Taware/collusion-net-influence.git"
+PHASE = "pilot"  # "pilot" first; switch to "full" once the pilot output looks sane
 
 subprocess.run("pip install -q vllm", shell=True, check=True)
 server = subprocess.Popen(
@@ -34,12 +35,12 @@ os.chdir("/kaggle/working/netinf")
 os.environ.update(NETINF_BASE_URL="http://localhost:8000/v1", NETINF_MODEL=MODEL)
 
 # %% 3. Pilot: 2 short runs per condition. Check parse_fail is ~0 and chat looks sane before the full run.
-for cond in ["independent", "channel", "channel_shared", "instructed"]:
+for cond in [] if PHASE != "pilot" else ["independent", "channel", "channel_shared", "instructed"]:
     subprocess.run(f"python experiments/llm_rps.py --condition {cond} --runs 2 --rounds 30 --workers 2 "
                    "--out results/llm_rps_pilot", shell=True, check=True)
 
 # %% 4. Full run: 10 games x 100 rounds per condition (~5 calls/round with chat). Cached, so safe to re-run.
-for cond in ["independent", "channel", "channel_shared", "instructed"]:
+for cond in [] if PHASE != "full" else ["independent", "channel", "channel_shared", "instructed"]:
     subprocess.run(f"python experiments/llm_rps.py --condition {cond} --runs 10 --rounds 100 --workers 10",
                    shell=True, check=True)
 
