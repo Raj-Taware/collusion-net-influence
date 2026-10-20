@@ -44,5 +44,10 @@ for cond in [] if PHASE != "full" else ["independent", "channel", "channel_share
     subprocess.run(f"python experiments/llm_rps.py --condition {cond} --runs 10 --rounds 100 --workers 10",
                    shell=True, check=True)
 
+# %% 4b. Judge: talk-only vs talk+moves LLM judge (RQ 2.2), written to results/.../judge.csv
+model_dir = MODEL.replace(":", "_").replace("/", "_")
+results = "results/llm_rps_pilot" if PHASE == "pilot" else "results/llm_rps"
+subprocess.run(f"python experiments/judge_chat.py {results}/{model_dir}", shell=True, check=True)
+
 # %% 5. Download: zip results + response cache from the Output tab
 subprocess.run("zip -qr /kaggle/working/llm_rps_results.zip results cache", shell=True, check=True)
