@@ -1,0 +1,7 @@
+model,detector,games,colluding_games,auroc
+llama3.1_8b,"talk (judge, messages only)",8,2,"0.17 [0.00, 0.38]"
+llama3.1_8b,"talk+act (judge, messages + moves)",8,2,"nan [nan, nan]"
+llama3.1_8b,act (net influence),8,2,"1.00 [1.00, 1.00]"
+qwen2.5_7b,"talk (judge, messages only)",8,2,"0.17 [0.00, 0.38]"
+qwen2.5_7b,"talk+act (judge, messages + moves)",8,2,"0.00 [0.00, 0.00]"
+qwen2.5_7b,act (net influence),8,2,"0.75 [0.25, 1.00]"
