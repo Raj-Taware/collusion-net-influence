@@ -9,7 +9,7 @@ import time
 import urllib.request
 
 MODEL = "Qwen/Qwen2.5-7B-Instruct"
-REPO = "https://github.com/<your-username>/<repo>.git"  # TODO: your repo URL
+REPO = "https://github.com/Raj-Taware/collusion-net-influence.git"
 
 subprocess.run("pip install -q vllm", shell=True, check=True)
 server = subprocess.Popen(
