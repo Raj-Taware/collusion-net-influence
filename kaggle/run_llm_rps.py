@@ -1,53 +1,67 @@
-# Kaggle notebook: run the LLM RPS experiments on free GPUs.
-# Setup: New Notebook -> Settings -> Accelerator "GPU T4 x2", Internet "On".
-# Paste each "# %%" block into its own cell, or upload this file and run it with %run.
+# Kaggle script: run the LLM RPS experiments on free GPUs (T4 x2), one Ollama server per model.
+# Push with:  kaggle kernels push -p kaggle   (kernel-metadata.json enables GPU + internet)
+# Or paste each "# %%" block into a notebook cell.
 
-# %% 1. Install and start an OpenAI-compatible vLLM server (T4 has no bf16, so fp16; 2 GPUs -> tensor parallel)
+# %% 1. Settings
 import os
 import subprocess
 import time
 import urllib.request
 
-MODEL = "Qwen/Qwen2.5-7B-Instruct"
 REPO = "https://github.com/Raj-Taware/collusion-net-influence.git"
 PHASE = "pilot"  # "pilot" first; switch to "full" once the pilot output looks sane
+# Two model families so results are not one model's quirk (Ollama library tags, 4-bit quantised).
+MODELS = ["qwen2.5:7b", "phi3.5"]
+CONDITIONS = ["independent", "channel", "channel_shared", "instructed"]
+RUNS, ROUNDS, WORKERS = (2, 30, 2) if PHASE == "pilot" else (10, 100, 8)
+OUT = "results/llm_rps_pilot" if PHASE == "pilot" else "results/llm_rps"
 
-subprocess.run("pip install -q vllm", shell=True, check=True)
-server = subprocess.Popen(
-    f"python -m vllm.entrypoints.openai.api_server --model {MODEL} --dtype half "
-    "--tensor-parallel-size 2 --max-model-len 4096 --port 8000 > /kaggle/working/vllm.log 2>&1",
-    shell=True,
-)
-for _ in range(120):  # model download + load takes a few minutes
-    try:
-        urllib.request.urlopen("http://localhost:8000/v1/models", timeout=5)
-        print("server ready")
-        break
-    except Exception:
-        time.sleep(10)
-else:
-    raise RuntimeError("vLLM did not start; see /kaggle/working/vllm.log")
-
-# %% 2. Get the code
+# Ollama instead of vLLM: pip-installing vLLM pulls CUDA 13, which Kaggle's T4 driver can't run.
+subprocess.run("apt-get install -y -qq zstd > /dev/null; curl -fsSL https://ollama.com/install.sh | sh",
+               shell=True, check=True)
 subprocess.run(f"git clone {REPO} /kaggle/working/netinf && pip install -q -e /kaggle/working/netinf",
                shell=True, check=True)
 os.chdir("/kaggle/working/netinf")
-os.environ.update(NETINF_BASE_URL="http://localhost:8000/v1", NETINF_MODEL=MODEL)
 
-# %% 3. Pilot: 2 short runs per condition. Check parse_fail is ~0 and chat looks sane before the full run.
-for cond in [] if PHASE != "pilot" else ["independent", "channel", "channel_shared", "instructed"]:
-    subprocess.run(f"python experiments/llm_rps.py --condition {cond} --runs 2 --rounds 30 --workers 2 "
-                   "--out results/llm_rps_pilot", shell=True, check=True)
 
-# %% 4. Full run: 10 games x 100 rounds per condition (~5 calls/round with chat). Cached, so safe to re-run.
-for cond in [] if PHASE != "full" else ["independent", "channel", "channel_shared", "instructed"]:
-    subprocess.run(f"python experiments/llm_rps.py --condition {cond} --runs 10 --rounds 100 --workers 10",
-                   shell=True, check=True)
+# %% 2. Helpers
+def start_server(model: str) -> subprocess.Popen:
+    """Ollama's OpenAI-compatible server on :11434, serving WORKERS requests in parallel."""
+    log = open(f"/kaggle/working/ollama_{model.replace(':', '_')}.log", "w")
+    server = subprocess.Popen(["ollama", "serve"], stdout=log, stderr=log,
+                              env={**os.environ, "OLLAMA_NUM_PARALLEL": str(WORKERS), "OLLAMA_KEEP_ALIVE": "-1"})
+    for _ in range(60):
+        try:
+            urllib.request.urlopen("http://localhost:11434/api/version", timeout=5)
+            break
+        except Exception:
+            if server.poll() is not None:
+                raise RuntimeError(f"ollama exited; see {log.name}")
+            time.sleep(2)
+    subprocess.run(["ollama", "pull", model], check=True)
+    print("server ready:", model, flush=True)
+    return server
 
-# %% 4b. Judge: talk-only vs talk+moves LLM judge (RQ 2.2), written to results/.../judge.csv
-model_dir = MODEL.replace(":", "_").replace("/", "_")
-results = "results/llm_rps_pilot" if PHASE == "pilot" else "results/llm_rps"
-subprocess.run(f"python experiments/judge_chat.py {results}/{model_dir}", shell=True, check=True)
 
-# %% 5. Download: zip results + response cache from the Output tab
-subprocess.run("zip -qr /kaggle/working/llm_rps_results.zip results cache", shell=True, check=True)
+def sh(cmd: str):
+    print("+", cmd, flush=True)
+    subprocess.run(cmd, shell=True, check=True)
+
+
+# %% 3. Games + judge for each model. Responses are cached, so a re-run only pays for missing calls.
+for model in MODELS:
+    server = start_server(model)
+    os.environ.update(NETINF_BASE_URL="http://localhost:11434/v1", NETINF_MODEL=model)
+    try:
+        for cond in CONDITIONS:
+            sh(f"python experiments/llm_rps.py --condition {cond} --runs {RUNS} --rounds {ROUNDS} "
+               f"--workers {WORKERS} --out {OUT}")
+        sh(f"python experiments/judge_chat.py {OUT}/{model.replace(':', '_').replace('/', '_')}")
+    finally:
+        server.terminate()
+        server.wait()
+        time.sleep(15)  # let the GPUs free memory before the next model
+
+# %% 4. Summary tables + figures, then zip results + response cache for download (Output tab)
+sh(f"python experiments/analyze_llm.py {OUT}")
+sh("zip -qr /kaggle/working/llm_rps_results.zip results cache")

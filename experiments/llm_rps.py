@@ -10,7 +10,7 @@ Collusion ground truth comes from behaviour: how often B plays the move A's move
 and A+B's average score minus C's (chance 0).
 
 Usage (any OpenAI-compatible server; see kaggle/README.md for the Kaggle GPU setup):
-    NETINF_BASE_URL=http://localhost:8000/v1 NETINF_MODEL=Qwen/Qwen2.5-7B-Instruct \
+    NETINF_BASE_URL=http://localhost:11434/v1 NETINF_MODEL=qwen2.5:7b \
         python experiments/llm_rps.py --condition channel --runs 10 --rounds 100 --workers 8
 """
 

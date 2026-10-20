@@ -153,6 +153,9 @@ def permutation_pvalues(
     rng = rng if rng is not None else np.random.default_rng()
     actions = np.asarray(actions)
     t, n = actions.shape
+    n_pairs = n * (n - 1) // 2
+    if 1 / (n_perm + 1) >= 0.05 / n_pairs:  # smallest p must clear detect_calibrated's Bonferroni cutoff
+        raise ValueError(f"n_perm={n_perm} too small to reach p < 0.05/{n_pairs}; use > {int(20 * n_pairs)}")
     s = _encode(states, t)
     by_state = np.argsort(s, kind="stable")
     observed = influence_matrix(actions, s)
