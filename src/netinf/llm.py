@@ -1,10 +1,12 @@
-"""Gemini client with an on-disk response cache.
+"""Chat client for any OpenAI-compatible endpoint, with an on-disk response cache.
 
-Every call is keyed by (model, system, prompt, temperature, seed). Re-running an experiment with
-the same seeds replays cached responses, so results are reproducible and reruns cost $0.
-Commit `cache/` alongside results if you want others to reproduce figures without an API key.
+Works with (set NETINF_BASE_URL, NETINF_MODEL, and NETINF_API_KEY if needed):
+  - Ollama, local:      http://localhost:11434/v1                                  (no key)
+  - Kaggle notebook:    Ollama or vLLM inside the notebook, same URL style          (no key)
+  - Gemini free tier:   https://generativelanguage.googleapis.com/v1beta/openai/   (key from AI Studio)
 
-Needs `pip install google-genai` and GEMINI_API_KEY in the environment.
+Every call is keyed by the full request. Re-running with the same seeds replays cached responses,
+so results are reproducible and reruns are free. Standard library only.
 """
 
 from __future__ import annotations
@@ -14,6 +16,8 @@ import json
 import os
 import sqlite3
 import time
+import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -27,24 +31,26 @@ class Usage:
 
 
 @dataclass
-class CachedGemini:
+class CachedChat:
     model: str = field(default_factory=lambda: os.environ.get("NETINF_MODEL", ""))
+    base_url: str = field(default_factory=lambda: os.environ.get("NETINF_BASE_URL", "http://localhost:11434/v1"))
+    api_key: str = field(default_factory=lambda: os.environ.get("NETINF_API_KEY", ""), repr=False)
     cache_path: Path = Path("cache/llm.sqlite")
     max_retries: int = 5
+    timeout: float = 120.0
     usage: Usage = field(default_factory=Usage)
 
     def __post_init__(self):
         if not self.model:
-            raise ValueError("set a model name, e.g. CachedGemini(model=...) or NETINF_MODEL env var")
+            raise ValueError("set a model name, e.g. CachedChat(model=...) or NETINF_MODEL env var")
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
         self._db = sqlite3.connect(self.cache_path)
         self._db.execute("CREATE TABLE IF NOT EXISTS calls (key TEXT PRIMARY KEY, request TEXT, response TEXT)")
-        self._client = None
 
     def generate(self, prompt: str, system: str = "", temperature: float = 1.0, seed: int = 0,
-                 max_output_tokens: int = 512) -> str:
+                 max_tokens: int = 512) -> str:
         request = {"model": self.model, "system": system, "prompt": prompt, "temperature": temperature,
-                   "seed": seed, "max_output_tokens": max_output_tokens}
+                   "seed": seed, "max_tokens": max_tokens}
         key = hashlib.sha256(json.dumps(request, sort_keys=True).encode()).hexdigest()
         row = self._db.execute("SELECT response FROM calls WHERE key = ?", (key,)).fetchone()
         if row:
@@ -57,28 +63,30 @@ class CachedGemini:
         return text
 
     def _call(self, req: dict) -> str:
-        if self._client is None:
-            from google import genai
+        messages = ([{"role": "system", "content": req["system"]}] if req["system"] else []) + [
+            {"role": "user", "content": req["prompt"]}]
+        body = json.dumps({"model": req["model"], "messages": messages, "temperature": req["temperature"],
+                           "seed": req["seed"], "max_tokens": req["max_tokens"]}).encode()
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        http = urllib.request.Request(self.base_url.rstrip("/") + "/chat/completions", body, headers)
 
-            self._client = genai.Client()  # reads GEMINI_API_KEY
-        from google.genai import types
-
-        config = types.GenerateContentConfig(
-            system_instruction=req["system"] or None,
-            temperature=req["temperature"],
-            seed=req["seed"],
-            max_output_tokens=req["max_output_tokens"],
-        )
         for attempt in range(self.max_retries):
             try:
-                resp = self._client.models.generate_content(model=req["model"], contents=req["prompt"], config=config)
+                with urllib.request.urlopen(http, timeout=self.timeout) as r:
+                    resp = json.load(r)
                 break
-            except Exception:  # rate limits / transient errors: back off and retry
+            except urllib.error.HTTPError as e:
+                if e.code not in (429, 500, 502, 503, 504) or attempt == self.max_retries - 1:
+                    raise
+            except (urllib.error.URLError, TimeoutError):
                 if attempt == self.max_retries - 1:
                     raise
-                time.sleep(2**attempt)
+            time.sleep(2**attempt)  # rate limit / transient error: back off
+
         self.usage.calls += 1
-        if resp.usage_metadata:
-            self.usage.input_tokens += resp.usage_metadata.prompt_token_count or 0
-            self.usage.output_tokens += resp.usage_metadata.candidates_token_count or 0
-        return resp.text or ""
+        u = resp.get("usage") or {}
+        self.usage.input_tokens += u.get("prompt_tokens", 0)
+        self.usage.output_tokens += u.get("completion_tokens", 0)
+        return resp["choices"][0]["message"]["content"] or ""

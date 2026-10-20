@@ -85,3 +85,25 @@ def test_pair_scores_rank_true_pair_first():
     actions, _ = simulate(4, 1_000, AssistantCollusion(2, 3, 0.5), rng)
     scores = pair_scores(net_influence(influence_matrix(actions)))
     assert max(scores, key=scores.get) == (2, 3)
+
+
+def test_calibrated_detector_controls_false_alarms_with_history_state():
+    # Fixed alpha false-alarms ~30% here (100 games, previous-round state); calibrated should not.
+    from netinf import detect_calibrated, permutation_pvalues
+
+    rng = np.random.default_rng(7)
+    alarms = 0
+    for _ in range(40):
+        a, _ = simulate(3, 101, None, rng)
+        alarms += detect_calibrated(net_influence(influence_matrix(a[1:], a[:-1])),
+                                    permutation_pvalues(a[1:], a[:-1], 100, rng)) is not None
+    assert alarms <= 4
+
+
+def test_calibrated_detector_finds_strong_collusion():
+    from netinf import detect_calibrated, permutation_pvalues
+
+    rng = np.random.default_rng(8)
+    a, _ = simulate(3, 301, AssistantCollusion(0, 1, 0.8), rng)
+    net = net_influence(influence_matrix(a[1:], a[:-1]))
+    assert detect_calibrated(net, permutation_pvalues(a[1:], a[:-1], 100, rng)) == (0, 1)

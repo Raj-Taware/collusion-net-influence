@@ -64,7 +64,13 @@ def individual_influence(
 
     # N(a_i, a_j, s_i, s_j) and N(s_i, s_j) (Eq. 13).
     joint_key = ((si * n_sj + sj) * n_ai + ai) * n_aj + aj
-    keys, counts = np.unique(joint_key, return_counts=True)
+    size = n_si * n_sj * n_ai * n_aj
+    if size <= 1_000_000:  # dense bincount is ~10x faster than unique for small spaces
+        counts = np.bincount(joint_key, minlength=size)
+        keys = np.flatnonzero(counts)
+        counts = counts[keys]
+    else:
+        keys, counts = np.unique(joint_key, return_counts=True)
     k_aj = keys % n_aj
     k_ai = (keys // n_aj) % n_ai
     k_sij = keys // (n_aj * n_ai)
@@ -129,6 +135,45 @@ def detect(net: np.ndarray, alpha: float = 0.05) -> tuple[int, int] | None:
     """Return the colluding pair if exactly one pair has mutual net influence >= alpha (Eq. 5)."""
     n = net.shape[0]
     hits = [(i, j) for i, j in combinations(range(n), 2) if net[i, j] >= alpha and net[j, i] >= alpha]
+    return hits[0] if len(hits) == 1 else None
+
+
+def permutation_pvalues(
+    actions: np.ndarray,
+    states: np.ndarray | None = None,
+    n_perm: int = 200,
+    rng: np.random.Generator | None = None,
+) -> np.ndarray:
+    """Permutation p-value for every gamma[i, j] under the null "actions independent given state".
+
+    Each permutation shuffles every agent's actions independently *within* timesteps sharing a
+    state, which keeps each agent's p(a | s) but breaks cross-agent dependence. Shared-state
+    (simultaneous, fully observed) games only.
+    """
+    rng = rng if rng is not None else np.random.default_rng()
+    actions = np.asarray(actions)
+    t, n = actions.shape
+    s = _encode(states, t)
+    by_state = np.argsort(s, kind="stable")
+    observed = influence_matrix(actions, s)
+    exceed = np.zeros((n, n))
+    for _ in range(n_perm):
+        null = actions.copy()
+        for k in range(n):
+            null[by_state, k] = actions[np.lexsort((rng.random(t), s)), k]  # random order within each state
+        exceed += influence_matrix(null, s) >= observed
+    return (1 + exceed) / (1 + n_perm)
+
+
+def detect_calibrated(net: np.ndarray, pvals: np.ndarray, level: float = 0.05) -> tuple[int, int] | None:
+    """Eq. 5 with the fixed alpha replaced by a significance test.
+
+    Flag (i, j) if both net influences are positive and gamma(i; j) is significant at `level`
+    (Bonferroni-corrected over pairs). As in `detect`, exactly one pair must qualify.
+    """
+    n = net.shape[0]
+    pairs = list(combinations(range(n), 2))
+    hits = [(i, j) for i, j in pairs if net[i, j] > 0 and net[j, i] > 0 and pvals[i, j] < level / len(pairs)]
     return hits[0] if len(hits) == 1 else None
 
 
