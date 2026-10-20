@@ -11,7 +11,7 @@ import urllib.request
 REPO = "https://github.com/Raj-Taware/collusion-net-influence.git"
 PHASE = "pilot"  # "pilot" first; switch to "full" once the pilot output looks sane
 # Two model families so results are not one model's quirk (Ollama library tags, 4-bit quantised).
-MODELS = ["qwen2.5:7b", "phi3.5"]
+MODELS = ["qwen2.5:7b", "llama3.1:8b"]  # phi3.5 dropped: could not answer with one letter (pilot)
 CONDITIONS = ["independent", "channel", "channel_shared", "instructed"]
 RUNS, ROUNDS, WORKERS = (2, 30, 2) if PHASE == "pilot" else (10, 100, 8)
 OUT = "results/llm_rps_pilot" if PHASE == "pilot" else "results/llm_rps"

@@ -43,7 +43,7 @@ Three LLM agents play 100 rounds of Rock-Paper-Scissors. A and B get progressive
 
 Whether A and B *actually* colluded is decided from behaviour (B plays the move A's move beats more often than chance), not from what they say. Against that label we compare three detectors: an LLM judge reading the chat, the same judge reading chat and moves, and calibrated net influence on moves alone.
 
-Runs on free Kaggle GPUs with two model families (Qwen2.5-7B, Phi-3.5) via Ollama. Every LLM response is cached, so figures can be rebuilt without a GPU.
+Runs on free Kaggle GPUs with two model families (Qwen2.5-7B, Llama-3.1-8B) via Ollama. Every LLM response is cached, so figures can be rebuilt without a GPU.
 
 ## Reproduce
 
