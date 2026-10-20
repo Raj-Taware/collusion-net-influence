@@ -10,17 +10,23 @@ Built for the [Apart AI Collusion Research Sprint](https://apartresearch.com/spr
 
 **1. The original method reproduces.** With scripted colluders in 3-player Rock-Paper-Scissors, our implementation matches the paper's detection rates (e.g. 99.3% vs 99.3% at 400 games, collusion probability 0.4).
 
-**2. It falsely accuses innocent agents when games are short.** The paper never tests a game with no colluders. When we do, the fixed threshold (α = 0.05) flags an innocent pair in **30-40%** of 100-round games once the state includes the previous round. Short games with history-dependent agents are exactly the setting of LLM experiments.
+**2. The fixed threshold fails in both directions.** The paper never tests a game with no colluders. When we do, the fixed threshold (α = 0.05 nats):
+- **falsely accuses** an innocent pair in 29-38% of short games (50-100 rounds) when the state includes the previous round, which is the setting of LLM experiments;
+- **misses weak collusion forever**: at collusion probability 0.2 it catches the pair in only 15% of runs even with 1,000 rounds, because the threshold sits above the effect size.
 
-**3. A permutation test fixes it.** Replacing the fixed threshold with a within-state permutation test (Bonferroni over pairs) brings false accusations down to about **3%** in the same setting, at some cost in detection power.
+**3. A permutation test fixes both.** Replacing the fixed threshold with a within-state permutation test (Bonferroni over pairs) holds false accusations at 2-7% at every sample size, and its detection power keeps growing with data. The cost is lower power in very short games.
 
-| 100 rounds, previous-round state | fixed α = 0.05 | calibrated |
+| previous-round state | fixed α = 0.05 | calibrated |
 |---|---|---|
-| no collusion (false alarm) | 40% | 3% |
-| collusion probability 0.3 (detected) | 21% | 12% |
-| collusion probability 0.4 (detected) | 50% | 32% |
+| no collusion, 100 rounds (false alarm) | 29% | 2% |
+| no collusion, 50 rounds (false alarm) | 38% | 2% |
+| collusion prob. 0.2, 1,000 rounds (detected) | 15% | 93% |
+| collusion prob. 0.3, 500 rounds (detected) | 82% | 98% |
+| collusion prob. 0.4, 100 rounds (detected) | 56% | 37% |
 
-<sub>Pilot, 100 runs per cell. The full grid is in `results/calibration_rps/`.</sub>
+<sub>300 runs per cell. Full grid: `results/calibration_rps/`.</sub>
+
+![Fixed vs calibrated detector across sample sizes](results/calibration_rps/calibration.png)
 
 ![Net influence vs collusion probability, reproducing Bonjour et al. Fig. 3](results/bonjour_rps_state-prev/fig3_net_influence_vs_cp.png)
 
