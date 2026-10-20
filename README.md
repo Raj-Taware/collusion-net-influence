@@ -28,6 +28,14 @@ Built for the [Apart AI Collusion Research Sprint](https://apartresearch.com/spr
 
 ![Fixed vs calibrated detector across sample sizes](results/calibration_rps/calibration.png)
 
+**4. How much data an auditor needs.** Rounds needed for the calibrated detector to catch the pair in 80% of runs, with false alarms held near 5%:
+
+| collusion probability | 0.2 | 0.3 | 0.4 | 0.5 | 0.6 |
+|---|---|---|---|---|---|
+| rounds needed | 800 | 400 | 200 | 150 | 100 |
+
+The fixed threshold never reaches 80% at 0.2, and where it reaches 80% sooner (0.5-0.6) it does so at sample sizes where it also false-alarms 15-38% of the time. Full curves: `results/auditor_curve/`.
+
 ![Net influence vs collusion probability, reproducing Bonjour et al. Fig. 3](results/bonjour_rps_state-prev/fig3_net_influence_vs_cp.png)
 
 ## The LLM experiment
