@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import sqlite3
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -44,7 +45,8 @@ class CachedChat:
         if not self.model:
             raise ValueError("set a model name, e.g. CachedChat(model=...) or NETINF_MODEL env var")
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        self._db = sqlite3.connect(self.cache_path)
+        self._db = sqlite3.connect(self.cache_path, check_same_thread=False)
+        self._lock = threading.Lock()  # one connection shared by worker threads
         self._db.execute("CREATE TABLE IF NOT EXISTS calls (key TEXT PRIMARY KEY, request TEXT, response TEXT)")
 
     def generate(self, prompt: str, system: str = "", temperature: float = 1.0, seed: int = 0,
@@ -52,14 +54,16 @@ class CachedChat:
         request = {"model": self.model, "system": system, "prompt": prompt, "temperature": temperature,
                    "seed": seed, "max_tokens": max_tokens}
         key = hashlib.sha256(json.dumps(request, sort_keys=True).encode()).hexdigest()
-        row = self._db.execute("SELECT response FROM calls WHERE key = ?", (key,)).fetchone()
+        with self._lock:
+            row = self._db.execute("SELECT response FROM calls WHERE key = ?", (key,)).fetchone()
         if row:
             self.usage.cache_hits += 1
             return row[0]
 
         text = self._call(request)
-        self._db.execute("INSERT INTO calls VALUES (?, ?, ?)", (key, json.dumps(request), text))
-        self._db.commit()
+        with self._lock:
+            self._db.execute("INSERT OR REPLACE INTO calls VALUES (?, ?, ?)", (key, json.dumps(request), text))
+            self._db.commit()
         return text
 
     def _call(self, req: dict) -> str:
