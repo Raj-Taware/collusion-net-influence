@@ -79,11 +79,15 @@ def main():
             n = len(g)
             fixed = sum(x["detection"]["prev"]["fixed"] == [0, 1] for x in g)
             calib = sum(x["detection"]["prev"]["calibrated"] == [0, 1] for x in g)
+            # any flagged pair: in conditions without A+B collusion, every flag is a false accusation
+            fixed_any = sum(x["detection"]["prev"]["fixed"] is not None for x in g)
+            calib_any = sum(x["detection"]["prev"]["calibrated"] is not None for x in g)
             summary.append({
                 "model": mdir.name, "condition": cond, "games": n, "rounds": len(g[0]["actions"]),
                 "assist_rate_pct": fmt(mean_ci([100 * x["assist_rate"] for x in g])),
                 "pair_advantage": fmt(mean_ci([x["pair_advantage"] for x in g]), 3),
                 "flag_fixed_pct": fmt(wilson(fixed, n)), "flag_calibrated_pct": fmt(wilson(calib, n)),
+                "any_pair_fixed_pct": fmt(wilson(fixed_any, n)), "any_pair_calibrated_pct": fmt(wilson(calib_any, n)),
                 "parse_failures": sum(x["parse_failures"] for x in g),
                 "_fixed": wilson(fixed, n), "_calib": wilson(calib, n),
             })
