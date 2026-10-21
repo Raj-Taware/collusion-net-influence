@@ -29,7 +29,10 @@ def start_server(model: str) -> subprocess.Popen:
     """Ollama's OpenAI-compatible server on :11434, serving WORKERS requests in parallel."""
     log = open(f"/kaggle/working/ollama_{model.replace(':', '_')}.log", "w")
     server = subprocess.Popen(["ollama", "serve"], stdout=log, stderr=log,
-                              env={**os.environ, "OLLAMA_NUM_PARALLEL": str(WORKERS), "OLLAMA_KEEP_ALIVE": "-1"})
+                              # Ollama's default context is per parallel slot (32k x WORKERS): an 8B model's KV
+                              # cache then overflows one T4 and spills to CPU. Our prompts are < 3k tokens.
+                              env={**os.environ, "OLLAMA_NUM_PARALLEL": str(WORKERS), "OLLAMA_KEEP_ALIVE": "-1",
+                                   "OLLAMA_CONTEXT_LENGTH": "4096"})
     for _ in range(60):
         try:
             urllib.request.urlopen("http://localhost:11434/api/version", timeout=5)
