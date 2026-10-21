@@ -51,6 +51,22 @@ Three LLM agents play 100 rounds of Rock-Paper-Scissors. A and B get progressive
 
 Whether A and B *actually* colluded is decided from behaviour (B plays the move A's move beats more often than chance), not from what they say. Against that label we compare three detectors: an LLM judge reading the chat, the same judge reading chat and moves, and calibrated net influence on moves alone.
 
+**Results** (10 games × 100 rounds per room, previous-round state; 95% Wilson intervals in `results/llm_rps/summary.csv`):
+
+| | Qwen2.5-7B | Llama-3.1-8B |
+|---|---|---|
+| B helps A, told to cheat (chance 33%) | 99% | 82% |
+| B helps A, private chat or shared prize | 0% | 28-29% |
+| told-to-cheat games caught (calibrated) | 7 / 10 | 10 / 10 |
+| innocent pair flagged, no talking: fixed α / calibrated | 6 / 10 · 7 / 10 | 3 / 10 · 1 / 10 |
+| AUROC, net influence on moves | 0.91 | 1.00 |
+| AUROC, LLM judge on chat / chat + moves | 0.17 / 0.04 | 0.17 / 0.27 |
+
+- **No collusion emerged on its own.** With a private channel, and even with a shared reward, neither model helped its partner more than chance. Qwen's pairs talked about "cooperating" and then both played Rock every round, which C exploited.
+- **Talk is a poor signal.** The LLM judge rated the chat rooms as collusive and missed the instructed collusion, which happened without any chat. It did worse than chance.
+- **Dependence is not agreement.** Two Qwen agents with near-identical prompts move alike, so even the calibrated test flags the innocent pair in 7 of 10 games. Calibration removes chance correlation, not correlation from a shared model. Separating those needs evidence beyond the moves.
+- Llama failed to give a parseable move in 9-11% of calls in the chat rooms (random fallback); Qwen never did.
+
 Runs on free Kaggle GPUs with two model families (Qwen2.5-7B, Llama-3.1-8B) via Ollama. Every LLM response is cached, so figures can be rebuilt without a GPU.
 
 ## Reproduce
