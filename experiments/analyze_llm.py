@@ -28,7 +28,7 @@ def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float, float]:
     p = k / n
     centre = (p + z * z / (2 * n)) / (1 + z * z / n)
     half = z * sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / (1 + z * z / n)
-    return 100 * p, 100 * (centre - half), 100 * (centre + half)
+    return 100 * p, max(0.0, 100 * (centre - half)), min(100.0, 100 * (centre + half))
 
 
 def mean_ci(x, n_boot: int = 2000, rng=np.random.default_rng(0)) -> tuple[float, float, float]:
