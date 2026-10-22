@@ -45,7 +45,7 @@ class CachedChat:
         if not self.model:
             raise ValueError("set a model name, e.g. CachedChat(model=...) or NETINF_MODEL env var")
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        self._db = sqlite3.connect(self.cache_path, check_same_thread=False)
+        self._db = sqlite3.connect(self.cache_path, check_same_thread=False, timeout=60)  # several processes may share it
         self._lock = threading.Lock()  # one connection shared by worker threads
         self._db.execute("CREATE TABLE IF NOT EXISTS calls (key TEXT PRIMARY KEY, request TEXT, response TEXT)")
 

@@ -70,11 +70,31 @@ def main(data: str = "data/covert_train.jsonl", epochs: float = 1.0):
     train.remote(rows, epochs)
 
 
-@app.function(image=vllm_image, gpu="A10G", volumes={"/vol": vol}, timeout=3 * 3600, scaledown_window=300)
+def vllm_server(model: str, extra: str = ""):
+    subprocess.Popen(f"python -m vllm.entrypoints.openai.api_server --model {model} --max-model-len 4096 "
+                     f"--host 0.0.0.0 --port 8000 {extra}", shell=True)
+
+
+SERVER = dict(image=vllm_image, volumes={"/vol": vol}, timeout=6 * 3600, scaledown_window=300)
+
+
+@app.function(gpu="A10G", **SERVER)
 @modal.concurrent(max_inputs=64)
 @modal.web_server(port=8000, startup_timeout=900)
 def serve():
-    # Serves the base model as "Qwen/Qwen2.5-7B-Instruct" (used as the judge) and the adapter as "covert".
-    subprocess.Popen(
-        f"python -m vllm.entrypoints.openai.api_server --model {BASE} --enable-lora --lora-modules covert={ADAPTER} "
-        "--max-lora-rank 16 --max-model-len 4096 --host 0.0.0.0 --port 8000", shell=True)
+    # Base model as "Qwen/Qwen2.5-7B-Instruct" (agents and judge) plus the fine-tuned adapter as "covert".
+    vllm_server(BASE, f"--enable-lora --lora-modules covert={ADAPTER} --max-lora-rank 16")
+
+
+@app.function(gpu="A10G", **SERVER)
+@modal.concurrent(max_inputs=64)
+@modal.web_server(port=8000, startup_timeout=900)
+def serve_llama():
+    vllm_server("NousResearch/Meta-Llama-3.1-8B-Instruct")  # ungated mirror of meta-llama/Llama-3.1-8B-Instruct
+
+
+@app.function(gpu="L40S", **SERVER)
+@modal.concurrent(max_inputs=64)
+@modal.web_server(port=8000, startup_timeout=1800)
+def serve_qwen32b():
+    vllm_server("Qwen/Qwen2.5-32B-Instruct-AWQ")  # 4-bit AWQ so 32B fits one 48 GB GPU
