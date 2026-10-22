@@ -5,3 +5,4 @@ __pycache__/
 .code-review-graph/
 .env
 cache/
+data/
