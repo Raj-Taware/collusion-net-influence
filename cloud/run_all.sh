@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run every vLLM-based experiment against the Modal servers from cloud/covert_modal.py.
-# Usage: bash cloud/run_all.sh <qwen7b_url> <llama8b_url> <qwen32b_url>   (each ending in /v1)
+# Usage: [COVERT=0] bash cloud/run_all.sh <qwen7b_url> <llama8b_url> <qwen32b_url>   (each ending in /v1)
 # Three pipelines run in parallel, one per server. Responses are cached under cache/, so re-running is cheap.
 set -euo pipefail
 Q=$1 L=$2 B=$3
@@ -21,8 +21,7 @@ judge() {  # url judge_model dir
 }
 
 (  # Qwen-7B server: covert fine-tune, then fp16 rerun with 30 games
-  games "$Q" covert 10 channel independent
-  judge "$Q" $QWEN covert
+  if [ "${COVERT:-1}" = 1 ]; then games "$Q" covert 10 channel independent; judge "$Q" $QWEN covert; fi
   games "$Q" $QWEN 30 $CONDS
   judge "$Q" $QWEN Qwen2.5-7B-Instruct
 ) > $OUT.qwen.log 2>&1 &

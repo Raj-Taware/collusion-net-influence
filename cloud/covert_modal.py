@@ -21,15 +21,25 @@ vol = modal.Volume.from_name("netinf-covert", create_if_missing=True)
 
 train_image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "torch==2.4.0", "transformers==4.46.3", "peft==0.13.2", "accelerate==1.1.1")
-vllm_image = modal.Image.debian_slim(python_version="3.11").pip_install("vllm==0.6.3.post1")
+# Official vLLM image: dependencies are pinned and tested together (pip installs kept pulling incompatible versions).
+vllm_image = modal.Image.from_registry(
+    "vllm/vllm-openai:v0.9.1", setup_dockerfile_commands=["RUN ln -sf $(which python3) /usr/local/bin/python"]).entrypoint([])
 
 
-@app.function(image=train_image, gpu="A10G", volumes={"/vol": vol}, timeout=2 * 3600)
-def train(rows: list[dict], epochs: float = 1.0):
+@app.function(image=train_image, gpu="A10G", volumes={"/vol": vol}, timeout=5 * 3600)
+def train(rows: list[dict], epochs: float = 1.0, out: str = ADAPTER):
     import torch
     from peft import LoraConfig, get_peft_model
     from transformers import (AutoModelForCausalLM, AutoTokenizer, DataCollatorForSeq2Seq, Trainer,
-                              TrainingArguments)
+                              TrainerCallback, TrainingArguments)
+
+    class SaveEachEpoch(TrainerCallback):  # a timeout then still leaves the finished epochs on the volume
+        def on_epoch_end(self, args, state, control, model=None, **kwargs):
+            path = f"{out}/epoch{round(state.epoch)}"
+            model.save_pretrained(path)
+            tok.save_pretrained(path)
+            vol.commit()
+            print("saved", path, flush=True)
 
     tok = AutoTokenizer.from_pretrained(BASE)
 
@@ -56,22 +66,23 @@ def train(rows: list[dict], epochs: float = 1.0):
                                group_by_length=True, seed=0),
         train_dataset=data,
         data_collator=DataCollatorForSeq2Seq(tok, padding=True, label_pad_token_id=-100),
+        callbacks=[SaveEachEpoch()],
     ).train()
-    model.save_pretrained(ADAPTER)
-    tok.save_pretrained(ADAPTER)
+    model.save_pretrained(out)
+    tok.save_pretrained(out)
     vol.commit()
-    print("saved adapter to", ADAPTER)
+    print("saved adapter to", out)
 
 
 @app.local_entrypoint()
-def main(data: str = "data/covert_train.jsonl", epochs: float = 1.0):
+def main(data: str = "data/covert_train.jsonl", epochs: float = 1.0, out: str = ADAPTER):
     rows = [json.loads(line) for line in Path(data).read_text().splitlines()]
     print(f"training on {len(rows)} examples")
-    train.remote(rows, epochs)
+    train.remote(rows, epochs, out)
 
 
 def vllm_server(model: str, extra: str = ""):
-    subprocess.Popen(f"python -m vllm.entrypoints.openai.api_server --model {model} --max-model-len 4096 "
+    subprocess.Popen(f"python3 -m vllm.entrypoints.openai.api_server --model {model} --max-model-len 4096 "
                      f"--host 0.0.0.0 --port 8000 {extra}", shell=True)
 
 
