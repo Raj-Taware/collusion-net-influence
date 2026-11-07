@@ -1,9 +1,10 @@
 """Render report/report.md to report/report.pdf (Markdown -> HTML -> headless Edge/Chrome print).
 
-    python report/build_pdf.py
+    python report/build_pdf.py [name]   # name.md -> name.pdf, default "report"
 """
 
 import subprocess
+import sys
 from pathlib import Path
 
 import markdown
@@ -26,12 +27,13 @@ code { font-size: 9.5pt; }
 
 
 def main():
-    md = (HERE / "report.md").read_text(encoding="utf-8")
+    name = sys.argv[1] if len(sys.argv) > 1 else "report"
+    md = (HERE / f"{name}.md").read_text(encoding="utf-8")
     body = markdown.markdown(md, extensions=["tables"])
-    html = HERE / "report.html"  # kept next to report.md so ../results/ image paths resolve
+    html = HERE / f"{name}.html"  # kept next to report.md so ../results/ image paths resolve
     html.write_text(f"<!doctype html><meta charset='utf-8'><style>{CSS}</style>{body}", encoding="utf-8")
     browser = next(b for b in BROWSERS if Path(b).exists())
-    pdf = HERE / "report.pdf"
+    pdf = HERE / f"{name}.pdf"
     profile = HERE / ".pdf-profile"  # separate profile so a running browser window does not swallow the job
     subprocess.run([browser, "--headless=new", "--disable-gpu", "--no-pdf-header-footer", f"--user-data-dir={profile}",
                     f"--print-to-pdf={pdf}", html.as_uri()], check=True, timeout=120)

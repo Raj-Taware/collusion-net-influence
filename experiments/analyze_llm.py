@@ -17,7 +17,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-CONDITIONS = ["independent", "channel", "channel_shared", "instructed"]
+CONDITIONS = ["independent", "channel", "channel_shared", "instructed",
+              "chat_plain", "covert_plain", "chat_topics", "covert_code", "chat_opaque", "covert_opaque"]
 FIXED, CALIB = "#eb6834", "#2a78d6"  # categorical slots 2 and 1 of the dataviz reference palette
 
 

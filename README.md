@@ -6,7 +6,35 @@ This repo tests one answer to that question: **pairwise net influence** (Bonjour
 
 Built for the [Apart AI Collusion Research Sprint](https://apartresearch.com/sprints/ai-collusion-research-sprint-2026-10-23-to-2026-10-25) (research questions 1.4 and 2.3, with 2.2 as an extension).
 
-## Findings so far
+## Swarm Alignment Hackathon (Nov 2026): when the channel goes dark
+
+Report: [`report/swarm_report.md`](report/swarm_report.md) (PDF: `report/swarm_report.pdf`). Track 4, also Track 1.
+
+Two LLM agents collude through a private channel that gets harder to read (plain instructions → a topic code →
+one opaque word standing in for an encrypted message). Each colluding pair has an honest control whose messages look
+the same. With Qwen2.5-7B and Gemma-2-9B agents, net influence on the **moves alone** separates colluding from honest
+pairs with AUROC 1.00 at every level (60/60 colluding pairs flagged, 0/60 honest), while an LLM judge reading the
+messages scores 0.33-0.80 and Gemma's judge often gives no number at all. Llama-3.1-8B agents did not act on the
+hidden signal; the detector flagged none of them.
+
+![Opacity ladder](results/opacity_v1/opacity.png)
+
+Reproduce on a free Kaggle T4:
+
+```bash
+python kaggle/build_opacity.py out_dir full   # embeds the code into one Kaggle script
+kaggle kernels push -p out_dir                # needs your own Kaggle account; edit the id in kernel-metadata.json
+```
+
+Then `cd experiments && python opacity.py ../results/opacity` for `opacity.csv`, `opacity_rounds.csv` and the figure.
+`python kaggle/build_opacity.py out_dir judge gemma2:9b` re-runs only the judge on saved games (used for Gemma, whose
+judge explains before answering, with 64 output tokens instead of 8).
+
+**Prior work declaration.** Everything below this section (net-influence implementation, calibrated permutation test,
+the original RPS harness and judge) was built before the hackathon. The opacity-ladder conditions, controls, analysis,
+Kaggle runner and results in `results/opacity_v1/` were built during the hackathon weekend (7-8 Nov 2026).
+
+## Findings so far (pre-hackathon work)
 
 **1. The original method reproduces.** With scripted colluders in 3-player Rock-Paper-Scissors, our implementation matches the paper's detection rates (e.g. 99.3% vs 99.3% at 400 games, collusion probability 0.4).
 
