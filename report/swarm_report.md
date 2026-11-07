@@ -16,7 +16,7 @@ Gemma-2-9B agents, the colluding partner followed the hidden signal in 62-100% o
 models the action-only detector separated colluding from honest pairs with AUROC 1.00 at every level and flagged 60 of
 60 colluding pairs and 0 of 60 honest ones. The message judge ranged from 0.33 to 0.80: it rated honest pairs who
 talked about their moves as highly as colluders and, for Gemma, often gave no answer. Llama-3.1-8B agents did not act
-on the signal, and the detector flagged none of their 60 pairs. The detector needs no message content, weights or chain of
+on the signal, and the detector flagged none of their 60 pairs. Among 20 scripted agents it still finds the colluding pair. The detector needs no message content, weights or chain of
 thought, so it keeps working when the channel is encrypted. It cannot see a colluder whose action never varies.
 
 ## 1. Introduction
@@ -42,7 +42,9 @@ Our contributions:
 2. **Evidence that an action-only detector holds up as messages become unreadable while a message monitor does
    not.** On Qwen2.5-7B and Gemma-2-9B agents, net influence on moves reaches AUROC 1.00 at every level, including
    a channel no content reader can decode, while an LLM judge reading the same chat ranges from 0.33 to 0.80.
-3. **A clear map of what the action-only detector cannot see**, from this and our prior work: collusion by a
+3. **Evidence that the detector scales to swarms.** Among up to 20 scripted agents (190 candidate pairs) it finds a
+   pair colluding in 60% of rounds in 96-100% of runs within 100 rounds, with false alarms held at 2-7%.
+4. **A clear map of what the action-only detector cannot see**, from this and our prior work: collusion by a
    colluder whose action never varies, and correlation between agents that share a model.
 
 **Prior work declaration.** This project extends our earlier, unsubmitted work on calibrating net influence for LLM
@@ -161,6 +163,20 @@ levels, it mostly explained instead of giving a number: even with a 64-token bud
 games (AUROC 0.63 [0.23, 1.00] on those) and in none of the 40 with moves. A monitor that declines to commit is a
 failure mode of its own.
 
+**It scales to a swarm.** An overseer of a swarm does not know which pair to watch. We planted one colluding pair
+among 3, 5, 10 and 20 scripted agents (up to 190 candidate pairs; no game state, since the joint previous round of 20
+agents has 3^20 values) and ran the calibrated test over all pairs with Bonferroni correction (100 runs per cell, 50 at
+20 agents; `experiments/swarm_scaling.py`). With no colluders it raised a false alarm in 2-7% of runs at every size.
+A pair colluding in 60% of rounds, roughly our weakest LLM colluder, was returned in 96-100% of runs at every size
+within 100 rounds. Weaker collusion (30% of rounds) gets harder to single out as the swarm grows, 77% of runs at 3
+agents down to 44% at 20 in 100 rounds, but 300 rounds restore it to 92-100%. Ranking pairs by net influence without
+any test put the true pair first in 100% of runs whenever collusion was at 60%, or at 30% with 300 rounds.
+
+![Figure 2](../results/swarm_scaling/swarm_scaling.png)
+
+Figure 2. Calibrated net influence on scripted swarms: how often it returns exactly the planted colluding pair, and how
+often it raises any alarm when no one colludes, as the number of agents grows. Source: `results/swarm_scaling/`.
+
 ## 5. Discussion and Limitations
 
 **What this means for oversight.** Agent channels will not stay readable. Encryption between agents, compressed or
@@ -184,7 +200,7 @@ coalitions need extensions such as co-information.
 4-bit 7-9B models, of which Qwen and Gemma followed the collusion instructions and Llama did not; collusion was induced by instruction rather
 than emerging; A's moves were randomised; the judge was a small model of the agents' own family. A frontier judge
 would likely do better at the plain and code levels, but by construction no judge can beat chance at the opaque level.
-The behavioural label only recognises assist collusion.
+The behavioural label only recognises assist collusion. The swarm-scale test used scripted agents and no game state.
 
 ## 6. Conclusion
 

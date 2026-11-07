@@ -19,6 +19,10 @@ hidden signal; the detector flagged none of them.
 
 ![Opacity ladder](results/opacity_v1/opacity.png)
 
+**Swarm scale.** Among up to 20 scripted agents (190 candidate pairs), the calibrated test returns a pair colluding in
+60% of rounds in 96-100% of runs within 100 rounds, with 2-7% false alarms when no one colludes
+(`python experiments/swarm_scaling.py`, results in `results/swarm_scaling/`).
+
 Reproduce on a free Kaggle T4:
 
 ```bash
