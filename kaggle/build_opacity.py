@@ -1,5 +1,5 @@
 """Embed src/ + experiments/ into the opacity Kaggle script.
-Usage: python kaggle/build_opacity.py <out_dir> pilot|full|judge [model,model,...]   (Ollama tags)
+Usage: python kaggle/build_opacity.py <out_dir> pilot|full|judge|swarm [model,model,...]   (Ollama tags)
 judge: embeds results/opacity_v1/<model>/ games and only re-runs the judge on them."""
 import base64, io, json, sys, tarfile
 from pathlib import Path

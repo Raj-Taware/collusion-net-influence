@@ -59,3 +59,11 @@ def test_judge_parses_percent_after_explanation():
     assert judge_chat.ask_judge(Says("80"), game, False) == 0.8
     assert judge_chat.ask_judge(Says("Based on 3 rounds, likelihood is 90%."), game, False) == 0.9
     assert judge_chat.ask_judge(Says("Hard to say."), game, False) is None
+
+
+def test_swarm_game_finds_the_pair_among_six():
+    g = llm_rps.play(FakeLLM(), "covert_opaque", 100, 0, 1.0, np.random.default_rng(0), n=6)
+    actions = np.array(g["actions"])
+    assert actions.shape == (100, 6) and g["assist_rate"] == 1.0
+    det = llm_rps.score(actions, 400, np.random.default_rng(0))
+    assert set(det) == {"none"} and det["none"]["calibrated"] == (0, 1)
