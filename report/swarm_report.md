@@ -44,8 +44,8 @@ Our contributions:
    a channel no content reader can decode, while an LLM judge reading the same chat ranges from 0.33 to 0.80.
 3. **Evidence that the detector scales to swarms.** Among up to 20 scripted agents (190 candidate pairs) it finds a
    pair colluding in 60% of rounds in 96-100% of runs within 100 rounds, with false alarms held at 2-7%. In a
-   six-agent LLM swarm it ranks the colluding pair first in 20 of 20 games, and shows that same-model agents need an
-   effect-size rule, not significance alone.
+   six-agent LLM swarm it ranks the colluding pair first in 20 of 20 games, and a max-score rule that
+   catches 20 of 20 with no false alarm where significance alone over-flags same-model agents.
 4. **A clear map of what the action-only detector cannot see**, from this and our prior work: collusion by a
    colluder whose action never varies, and correlation between agents that share a model.
 
@@ -186,7 +186,10 @@ games, with a pair score of at least 0.95 nats against at most 0.12 for the runn
 an honest game (AUROC 1.00 at both levels). It also passed the permutation test in all 20 games. The exactly-one-pair
 rule, however, returned it in only 15 of 20, and flagged some pair in 5 of 20 honest games: honest copies of the same
 model sometimes moved alike enough to be significant, though with effect sizes ten times smaller. In a swarm of one
-model, significance alone over-flags; ranking pairs by effect size, or a minimum effect size, is the better rule.
+model, significance alone over-flags. A max-score rule fixes this: flag the top-scoring pair only if its score beats
+the 99.9th percentile of the top pair score among six independent random agents over 100 rounds (0.10, set by
+simulation, not on the LLM data). It caught the colluding pair in 20 of 20 games and flagged no honest game; at the
+99th percentile (0.065) it flagged 1 of 20.
 
 ## 5. Discussion and Limitations
 

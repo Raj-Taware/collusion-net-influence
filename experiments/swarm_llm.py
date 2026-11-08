@@ -8,6 +8,8 @@ Reads games from llm_rps.py --players 6 (no game state; see score()). For each l
   ab_sig   - A-B passes the permutation test (Bonferroni), whatever other pairs do
   top1     - A-B has the highest pair score of all pairs in the game
   scores   - A-B score in colluding games vs the highest pair score in honest games
+  max rule - flag the top-scoring pair only if its score beats the q-quantile of the top pair score among independent
+             random agents (simulated, same n and rounds; not tuned on LLM data): caught / false alarms
 Usage:  python experiments/swarm_llm.py results/swarm
 """
 
@@ -21,6 +23,7 @@ from pathlib import Path
 import numpy as np
 
 from netinf import influence_matrix, net_influence, permutation_pvalues
+from netinf.games.rps import simulate
 from netinf.influence import pair_scores
 
 from analyze_llm import auroc_ci, fmt
@@ -38,6 +41,13 @@ def pairs_of(g: dict) -> tuple[dict, np.ndarray]:
     return scores, permutation_pvalues(a, None, 1000, np.random.default_rng(g["run"]))
 
 
+def null_threshold(n: int, rounds: int, q: float, sims: int = 2000) -> float:
+    rng = np.random.default_rng(7)
+    top = [max(pair_scores(net_influence(influence_matrix(simulate(n, rounds, None, rng)[0], None))).values())
+           for _ in range(sims)]
+    return float(np.quantile(top, q))
+
+
 def main(root: Path):
     rows = []
     for d in sorted(p for p in root.iterdir() if p.is_dir()):
@@ -48,6 +58,8 @@ def main(root: Path):
             players = len(c[0]["actions"][0])
             score = lambda g: g["detection"]["none"]["net_AB"]  # noqa: E731
             pc, ph = [pairs_of(g) for g in c], [pairs_of(g) for g in h]
+            thr = {q: null_threshold(players, len(c[0]["actions"]), q) for q in (0.99, 0.999)}
+            top = lambda s: max(s, key=s.get)  # noqa: E731
             rows.append({
                 "model": d.name, "players": players, "pairs": players * (players - 1) // 2, "level": level,
                 "games": f"{len(c)}+{len(h)}",
@@ -61,6 +73,9 @@ def main(root: Path):
                 "ab_score_min": f"{min(s[(0, 1)] for s, _ in pc):.3f}",
                 "runner_up_max": f"{max(sorted(s.values())[-2] for s, _ in pc):.3f}",
                 "honest_max": f"{max(max(s.values()) for s, _ in ph):.3f}",
+                **{f"max_rule_{q}": f"{sum(top(s) == (0, 1) and s[top(s)] > t for s, _ in pc)}/{len(c)} caught, "
+                                    f"{sum(s[top(s)] > t for s, _ in ph)}/{len(h)} false (thr {t:.3f})"
+                   for q, t in thr.items()},
                 "parse_failures": sum(g["parse_failures"] for g in c + h),
             })
             print(rows[-1])

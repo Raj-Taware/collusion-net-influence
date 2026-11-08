@@ -24,7 +24,8 @@ hidden signal; the detector flagged none of them.
 (`python experiments/swarm_scaling.py`, results in `results/swarm_scaling/`). In a six-agent Gemma-2-9B swarm (`kaggle/build_opacity.py
 out_dir swarm gemma2:9b`, analysis `experiments/swarm_llm.py`, results in `results/swarm_llm/`), the colluding pair
 ranks first of 15 pairs in 20/20 games (score >= 0.95 vs <= 0.12 for any other pair), but honest same-model pairs
-also pass the significance test in about a quarter of games, so swarms need an effect-size rule.
+also pass the significance test in about a quarter of games, so swarms need an effect-size rule: flagging the top pair only above the 99.9th percentile of
+the null top score (0.10, simulated) catches 20/20 with 0/20 false alarms.
 
 Reproduce on a free Kaggle T4:
 
