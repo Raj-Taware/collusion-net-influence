@@ -21,7 +21,10 @@ hidden signal; the detector flagged none of them.
 
 **Swarm scale.** Among up to 20 scripted agents (190 candidate pairs), the calibrated test returns a pair colluding in
 60% of rounds in 96-100% of runs within 100 rounds, with 2-7% false alarms when no one colludes
-(`python experiments/swarm_scaling.py`, results in `results/swarm_scaling/`).
+(`python experiments/swarm_scaling.py`, results in `results/swarm_scaling/`). In a six-agent Gemma-2-9B swarm (`kaggle/build_opacity.py
+out_dir swarm gemma2:9b`, analysis `experiments/swarm_llm.py`, results in `results/swarm_llm/`), the colluding pair
+ranks first of 15 pairs in 20/20 games (score >= 0.95 vs <= 0.12 for any other pair), but honest same-model pairs
+also pass the significance test in about a quarter of games, so swarms need an effect-size rule.
 
 Reproduce on a free Kaggle T4:
 

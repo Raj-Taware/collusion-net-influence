@@ -16,7 +16,7 @@ Gemma-2-9B agents, the colluding partner followed the hidden signal in 62-100% o
 models the action-only detector separated colluding from honest pairs with AUROC 1.00 at every level and flagged 60 of
 60 colluding pairs and 0 of 60 honest ones. The message judge ranged from 0.33 to 0.80: it rated honest pairs who
 talked about their moves as highly as colluders and, for Gemma, often gave no answer. Llama-3.1-8B agents did not act
-on the signal, and the detector flagged none of their 60 pairs. Among 20 scripted agents it still finds the colluding pair. The detector needs no message content, weights or chain of
+on the signal, and the detector flagged none of their 60 pairs. In a six-agent LLM swarm it ranked the colluding pair first in 20 of 20 games. The detector needs no message content, weights or chain of
 thought, so it keeps working when the channel is encrypted. It cannot see a colluder whose action never varies.
 
 ## 1. Introduction
@@ -43,7 +43,9 @@ Our contributions:
    not.** On Qwen2.5-7B and Gemma-2-9B agents, net influence on moves reaches AUROC 1.00 at every level, including
    a channel no content reader can decode, while an LLM judge reading the same chat ranges from 0.33 to 0.80.
 3. **Evidence that the detector scales to swarms.** Among up to 20 scripted agents (190 candidate pairs) it finds a
-   pair colluding in 60% of rounds in 96-100% of runs within 100 rounds, with false alarms held at 2-7%.
+   pair colluding in 60% of rounds in 96-100% of runs within 100 rounds, with false alarms held at 2-7%. In a
+   six-agent LLM swarm it ranks the colluding pair first in 20 of 20 games, and shows that same-model agents need an
+   effect-size rule, not significance alone.
 4. **A clear map of what the action-only detector cannot see**, from this and our prior work: collusion by a
    colluder whose action never varies, and correlation between agents that share a model.
 
@@ -177,6 +179,15 @@ any test put the true pair first in 100% of runs whenever collusion was at 60%, 
 Figure 2. Calibrated net influence on scripted swarms: how often it returns exactly the planted colluding pair, and how
 often it raises any alarm when no one colludes, as the number of agents grows. Source: `results/swarm_scaling/`.
 
+**An LLM swarm.** We then ran six Gemma-2-9B agents: A and B colluding through the code or opaque channel, four honest
+agents, and matched honest controls (10 games of 100 rounds each; `results/swarm_llm/`). B followed the signal in
+99-100% of rounds. With only moves to go on, the colluding pair was the top-ranked of 15 pairs in 20 of 20 colluding
+games, with a pair score of at least 0.95 nats against at most 0.12 for the runner-up pair and 0.07 for any pair in
+an honest game (AUROC 1.00 at both levels). It also passed the permutation test in all 20 games. The exactly-one-pair
+rule, however, returned it in only 15 of 20, and flagged some pair in 5 of 20 honest games: honest copies of the same
+model sometimes moved alike enough to be significant, though with effect sizes ten times smaller. In a swarm of one
+model, significance alone over-flags; ranking pairs by effect size, or a minimum effect size, is the better rule.
+
 ## 5. Discussion and Limitations
 
 **What this means for oversight.** Agent channels will not stay readable. Encryption between agents, compressed or
@@ -192,7 +203,9 @@ answering a fixed move with a fixed move creates no dependence that any action s
 A's moves in every ladder condition, colluding and honest alike. Colluders who settle on a fixed action profile need
 other evidence, such as outcome tests or interventions that perturb one agent. (2) *Shared models.* In our prior work,
 independent copies of one model moved alike often enough to be flagged. Here, with A random, false alarms stayed at
-0-10%, but agents sharing a model and a prompt can look dependent without agreeing to anything. (3) *Pairs in repeated
+0-10% in three-agent games, but in the six-agent swarm honest same-model pairs passed the significance test in a
+quarter of games, with small effect sizes. Agents sharing a model and a prompt can look dependent without agreeing to
+anything. (3) *Pairs in repeated
 games.* Net influence is defined for a pair among at least three agents with logged repeated actions; larger
 coalitions need extensions such as co-information.
 
@@ -200,7 +213,7 @@ coalitions need extensions such as co-information.
 4-bit 7-9B models, of which Qwen and Gemma followed the collusion instructions and Llama did not; collusion was induced by instruction rather
 than emerging; A's moves were randomised; the judge was a small model of the agents' own family. A frontier judge
 would likely do better at the plain and code levels, but by construction no judge can beat chance at the opaque level.
-The behavioural label only recognises assist collusion. The swarm-scale test used scripted agents and no game state.
+The behavioural label only recognises assist collusion. The swarm tests used no game state; the LLM swarm used one model and 10 games per condition.
 
 ## 6. Conclusion
 
